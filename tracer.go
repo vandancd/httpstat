@@ -15,10 +15,15 @@ var lastMessageTime time.Time
 
 // addTraceMessage adds a message to the trace log
 func addTraceMessage(format string, args ...interface{}) {
-	msg := fmt.Sprintf(format, args...)
+	now := time.Now()
+	// If you want to print timestamp, uncomment the following next two lines.
+	timestamp := now.Format("2006-01-02 15:04:05.000")
+	msg := fmt.Sprintf("%s: %s", timestamp, fmt.Sprintf(format, args...))
+
+	//msg := fmt.Sprintf(format, args...)
 
 	// Deduplicate messages that occur within 10ms of each other
-	now := time.Now()
+	//now := time.Now()
 	if msg == lastMessage && now.Sub(lastMessageTime) < 10*time.Millisecond {
 		return
 	}
@@ -60,10 +65,16 @@ func createTracer(timing *Timing) *httptrace.ClientTrace {
 		},
 		TLSHandshakeDone: func(cs tls.ConnectionState, err error) {
 			timing.TLSHandshake = time.Since(tlsHandshake)
+			if err != nil {
+				addTraceMessage("TLS handshake failed: %v", err)
+			} else {
+				addTraceMessage("TLS handshake completed")
+			}
 		},
 		GotFirstResponseByte: func() {
 			firstByte = time.Now()
 			timing.ServerProcessing = firstByte.Sub(start)
+			addTraceMessage("First response byte received (TTFB)")
 		},
 		GetConn: func(hostPort string) {
 			start = time.Now()

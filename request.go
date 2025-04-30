@@ -92,6 +92,7 @@ func processResponseBody(resp *http.Response, timing *Timing, bodyStart, start t
 		return err
 	}
 	timing.ContentTransfer = time.Since(bodyStart)
+	addTraceMessage("Response body fully read (TTLB)")
 	timing.Total = time.Since(start)
 	return nil
 }
