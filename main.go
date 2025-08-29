@@ -137,6 +137,11 @@ func main() {
 
 	// Print results
 	printResults(resp, redirects, finalTiming)
+
+	/*dnsTraceErr := traceDNS("www.vandan.com")
+	if dnsTraceErr != nil {
+		fmt.Fprintf(os.Stderr, "DNS trace failed: %v\n", err)
+	}*/
 }
 
 func parseCommandLine(fs *flag.FlagSet) (string, error) {
