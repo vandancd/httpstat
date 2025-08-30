@@ -60,6 +60,7 @@ func main() {
 	maxRedirects := fs.Int("max-redirects", 5, "Maximum number of redirects allowed (default: 5, range: 2-10)")
 	dnsServers := fs.String("dns-servers", "", "Comma-separated list of DNS server IP addresses (e.g., 8.8.8.8,8.8.4.4)")
 	useIPv6 := fs.Bool("ipv6", false, "Prefer IPv6 connections over IPv4")
+	browser := fs.Bool("browser", false, "Use headless browser probe")
 
 	// Parse command line arguments
 	url, err := parseCommandLine(fs)
@@ -72,6 +73,15 @@ func main() {
 	if *maxRedirects < 2 || *maxRedirects > 10 {
 		fmt.Fprintf(os.Stderr, "Error: max-redirects must be between 2 and 10\n")
 		os.Exit(1)
+	}
+
+	if *browser {
+		err := runBrowserProbe(url)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Browser probe failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	// Set up DNS resolver if custom servers are provided
