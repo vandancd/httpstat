@@ -22,6 +22,6 @@ type RedirectInfo struct {
 	StartTime     time.Time
 	EndTime       time.Time
 	Timing        Timing
-	TraceMessages []string
+	TraceMessages []TraceEvent
 }
 

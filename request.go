@@ -14,13 +14,14 @@ func handleRedirect(req *http.Request, via []*http.Request, redirects *[]Redirec
 	if lastResponse := req.Response; lastResponse != nil {
 		if m := measurementFromContext(lastResponse.Request.Context()); m != nil {
 			*redirects = append(*redirects, RedirectInfo{
-				URL:        lastResponse.Request.URL.String(),
-				StatusCode: lastResponse.StatusCode,
-				Status:     lastResponse.Status,
-				Protocol:   lastResponse.Proto,
-				StartTime:  m.StartTime(),
-				EndTime:    time.Now(),
-				Timing:     m.Result(),
+				URL:           lastResponse.Request.URL.String(),
+				StatusCode:    lastResponse.StatusCode,
+				Status:        lastResponse.Status,
+				Protocol:      lastResponse.Proto,
+				StartTime:     m.StartTime(),
+				EndTime:       time.Now(),
+				Timing:        m.Result(),
+				TraceMessages: log.Flush(),
 			})
 			nextM := NewMeasurement(log, useCustomDNS)
 			*req = *req.WithContext(nextM.Instrument(req.Context()))
@@ -109,6 +110,21 @@ type ResponseJSON struct {
 	Trace        TraceJSON      `json:"trace"`
 }
 
+// formatTraceEvents combines all hop trace events in order and formats them
+// as "timestamp: text" strings for JSON consumers.
+func formatTraceEvents(probe ProbeResult) []string {
+	var out []string
+	for _, r := range probe.Redirects {
+		for _, e := range r.TraceMessages {
+			out = append(out, e.Time.Format("2006-01-02 15:04:05.000")+": "+e.Text)
+		}
+	}
+	for _, e := range probe.TraceMessages {
+		out = append(out, e.Time.Format("2006-01-02 15:04:05.000")+": "+e.Text)
+	}
+	return out
+}
+
 // printJSON formats and prints the probe result as JSON.
 func printJSON(probe ProbeResult) {
 	connLabel := "new"
@@ -127,7 +143,7 @@ func printJSON(probe ProbeResult) {
 			TotalTime: formatDuration(probe.Timing.Total),
 		},
 		Trace: TraceJSON{
-			Messages: probe.TraceMessages,
+			Messages: formatTraceEvents(probe),
 		},
 	}
 

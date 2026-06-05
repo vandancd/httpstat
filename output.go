@@ -85,6 +85,41 @@ func printHopPhases(t Timing, grandTotal time.Duration, showTTLB bool) {
 	}
 }
 
+func eventPhaseColor(text string, ttfb time.Duration) string {
+	switch {
+	case strings.Contains(text, "DNS") || strings.Contains(text, "Connection attempt"):
+		return colorCyan
+	case strings.Contains(text, "TLS"):
+		return colorYellow
+	case strings.Contains(text, "TTFB") || strings.Contains(text, "First response byte"):
+		return ttfbColor(ttfb)
+	case strings.Contains(text, "TTLB") || strings.Contains(text, "Response body"):
+		return colorBlue
+	default:
+		return colorDim
+	}
+}
+
+func printHopTrace(events []TraceEvent, marker, url string, statusCode int, status string, ttfb time.Duration, probeStart time.Time, lastTime *time.Time) {
+	sc := statusColor(statusCode)
+	fmt.Printf("\n  %s%s%s  %s%s%s  %s%s%s\n",
+		colorBold, marker, colorReset,
+		colorBold, url, colorReset,
+		sc, status, colorReset,
+	)
+	for _, e := range events {
+		elapsed := e.Time.Sub(probeStart)
+		delta := e.Time.Sub(*lastTime)
+		color := eventPhaseColor(e.Text, ttfb)
+		fmt.Printf("  %s%7s%s  %s%-10s%s  %s%s%s\n",
+			colorDim, fmt.Sprintf("+%dms", elapsed.Milliseconds()), colorReset,
+			colorDim, fmt.Sprintf("[+%dms]", delta.Milliseconds()), colorReset,
+			color, e.Text, colorReset,
+		)
+		*lastTime = e.Time
+	}
+}
+
 func printWaterfall(result ProbeResult, showTrace bool) {
 	grandTotal := result.Timing.Total
 	if len(result.Redirects) > 0 {
@@ -113,10 +148,22 @@ func printWaterfall(result ProbeResult, showTrace bool) {
 		colorBold+formatDuration(grandTotal)+colorReset,
 	)
 
-	if showTrace && len(result.TraceMessages) > 0 {
-		fmt.Printf("\n%sTrace%s\n", colorBold, colorReset)
-		for _, msg := range result.TraceMessages {
-			fmt.Printf("  %s%s%s\n", colorDim, msg, colorReset)
+	if showTrace {
+		// Find probe start: the time of the very first event across all hops
+		var probeStart time.Time
+		if len(result.Redirects) > 0 && len(result.Redirects[0].TraceMessages) > 0 {
+			probeStart = result.Redirects[0].TraceMessages[0].Time
+		} else if len(result.TraceMessages) > 0 {
+			probeStart = result.TraceMessages[0].Time
+		}
+
+		if !probeStart.IsZero() {
+			fmt.Printf("\n%sTrace%s\n", colorBold, colorReset)
+			lastTime := probeStart
+			for _, r := range result.Redirects {
+				printHopTrace(r.TraceMessages, "→", r.URL, r.StatusCode, r.Status, r.Timing.ServerProcessing, probeStart, &lastTime)
+			}
+			printHopTrace(result.TraceMessages, "●", result.URL, result.StatusCode, result.Status, result.Timing.ServerProcessing, probeStart, &lastTime)
 		}
 	}
 }

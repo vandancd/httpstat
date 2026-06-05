@@ -45,31 +45,37 @@ func measurementFromContext(ctx context.Context) *Measurement {
 	return m
 }
 
+// TraceEvent is a single timestamped trace message. The timestamp is stored
+// separately so renderers can compute elapsed and delta without parsing strings.
+type TraceEvent struct {
+	Time time.Time
+	Text string
+}
+
 type TraceLog struct {
-	messages        []string
+	messages        []TraceEvent
 	lastMessage     string
 	lastMessageTime time.Time
 }
 
 func (l *TraceLog) Log(format string, args ...interface{}) {
 	now := time.Now()
-	timestamp := now.Format("2006-01-02 15:04:05.000")
-	msg := fmt.Sprintf("%s: %s", timestamp, fmt.Sprintf(format, args...))
-	// Deduplicate messages that occur within 10ms of each other
-	if msg == l.lastMessage && now.Sub(l.lastMessageTime) < 10*time.Millisecond {
+	text := fmt.Sprintf(format, args...)
+	// Deduplicate consecutive identical messages within 10ms
+	if text == l.lastMessage && now.Sub(l.lastMessageTime) < 10*time.Millisecond {
 		return
 	}
-	l.messages = append(l.messages, msg)
-	l.lastMessage = msg
+	l.messages = append(l.messages, TraceEvent{Time: now, Text: text})
+	l.lastMessage = text
 	l.lastMessageTime = now
 }
 
-func (l *TraceLog) Flush() []string {
-	msgs := l.messages
+func (l *TraceLog) Flush() []TraceEvent {
+	events := l.messages
 	l.messages = nil
 	l.lastMessage = ""
 	l.lastMessageTime = time.Time{}
-	return msgs
+	return events
 }
 
 func createTracer(m *Measurement) *httptrace.ClientTrace {

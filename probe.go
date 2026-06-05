@@ -27,7 +27,7 @@ type ProbeResult struct {
 	Redirects     []RedirectInfo
 	Timing        Timing
 	StartTime     time.Time
-	TraceMessages []string
+	TraceMessages []TraceEvent
 }
 
 type customDialer struct {

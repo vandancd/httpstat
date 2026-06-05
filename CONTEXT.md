@@ -28,6 +28,10 @@ _Avoid_: download time, body time
 The default terminal output format. Displays each hop's phases as proportional horizontal bars, scaled relative to the grand total, stacked per hop with a total elapsed bar at the bottom.
 _Avoid_: chart, diagram, visual
 
+**TraceEvent**:
+A single timestamped network event captured during a probe. Stored as raw text + time so renderers can compute elapsed and delta without parsing strings.
+_Avoid_: log entry, message, log line
+
 **Grand Total**:
 The elapsed time from the start of the first hop to the end of the final hop's body read. Used to scale all waterfall bars so phases are visually comparable across hops.
 _Avoid_: total time (ambiguous — each hop also has a total)
@@ -39,6 +43,8 @@ _Avoid_: total time (ambiguous — each hop also has a total)
 - **TTLB** only appears on the final **Hop** (redirects have no body)
 - The **Waterfall** scales all **Phase** bars relative to the **Grand Total**
 - **TTFB** is the only **Phase** with a severity color (green < 200ms, yellow < 500ms, red ≥ 500ms)
+- Each **Hop** owns its own **TraceEvents**; they are flushed at hop boundaries so the renderer can group them
+- A **TraceEvent**'s elapsed is computed from the first **TraceEvent** of the **Probe** (not from wall-clock time)
 
 ## Example dialogue
 
