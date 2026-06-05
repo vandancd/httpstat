@@ -32,7 +32,7 @@ func getSystemDNSServers() []string {
 }
 
 // createCustomResolver creates a custom DNS resolver that tries multiple DNS servers
-func createCustomResolver(dnsServers []string) *net.Resolver {
+func createCustomResolver(dnsServers []string, log *TraceLog) *net.Resolver {
 	currentServer := 0
 	return &net.Resolver{
 		PreferGo: true,
@@ -42,7 +42,7 @@ func createCustomResolver(dnsServers []string) *net.Resolver {
 				server := dnsServers[currentServer]
 				currentServer = (currentServer + 1) % len(dnsServers)
 
-				addTraceMessage("Attempting DNS resolution using server: %s", server)
+				log.Log("Attempting DNS resolution using server: %s", server)
 				conn, err := net.Dial("udp", server+":53")
 				if err == nil {
 					return conn, nil

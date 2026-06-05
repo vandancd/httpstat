@@ -24,6 +24,3 @@ type RedirectInfo struct {
 	TraceMessages []string
 }
 
-// Context keys for storing values in request context
-type startTimeContextKey struct{}
-type timingContextKey struct{}
