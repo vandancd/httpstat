@@ -18,6 +18,7 @@ type RedirectInfo struct {
 	URL           string
 	StatusCode    int
 	Status        string
+	Protocol      string
 	StartTime     time.Time
 	EndTime       time.Time
 	Timing        Timing

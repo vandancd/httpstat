@@ -18,6 +18,8 @@ func main() {
 	dnsServers := fs.String("dns-servers", "", "Comma-separated list of DNS server IP addresses (e.g., 8.8.8.8,8.8.4.4)")
 	useIPv6 := fs.Bool("ipv6", false, "Prefer IPv6 connections over IPv4")
 	browser := fs.Bool("browser", false, "Use headless browser probe")
+	asJSON := fs.Bool("json", false, "Output results as JSON")
+	showTrace := fs.Bool("trace", false, "Show trace messages in output")
 
 	url, err := parseCommandLine(fs)
 	if err != nil {
@@ -59,7 +61,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	printResults(result)
+	if *asJSON {
+		printJSON(result)
+	} else {
+		printWaterfall(result, *showTrace)
+	}
 }
 
 func parseCommandLine(fs *flag.FlagSet) (string, error) {

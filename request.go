@@ -17,6 +17,7 @@ func handleRedirect(req *http.Request, via []*http.Request, redirects *[]Redirec
 				URL:        lastResponse.Request.URL.String(),
 				StatusCode: lastResponse.StatusCode,
 				Status:     lastResponse.Status,
+				Protocol:   lastResponse.Proto,
 				StartTime:  m.StartTime(),
 				EndTime:    time.Now(),
 				Timing:     m.Result(),
@@ -108,8 +109,8 @@ type ResponseJSON struct {
 	Trace        TraceJSON      `json:"trace"`
 }
 
-// printResults formats and prints the probe result as JSON.
-func printResults(probe ProbeResult) {
+// printJSON formats and prints the probe result as JSON.
+func printJSON(probe ProbeResult) {
 	connLabel := "new"
 	if probe.Timing.ReusedConnection {
 		connLabel = "reused"
