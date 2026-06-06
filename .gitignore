@@ -30,6 +30,11 @@ dist/
 # compiled binary
 httpstat
 
+# project meta
+CLAUDE.md
+CONTEXT.md
+docs/
+
 # macOS
 .DS_Store
 .AppleDouble
