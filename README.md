@@ -27,13 +27,13 @@ The mental model engineers need is: "How much of the total round-trip was DNS? W
 ## The Waterfall Output (default, no flags needed)
 `httpstat` renders a waterfall bar chart directly in the terminal. Every hop (redirect + final response) appears in order, with each phase as a proportional horizontal bar:
 ```
-  →  http://target.com  301 Moved Permanently  HTTP/1.1  new connection
+  →  http://vandan.co  301 Moved Permanently  HTTP/1.1  new connection
     DNS Lookup         ████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  7.31ms
     TCP Connection     ███░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  18.43ms
     TLS Handshake      ████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  28.96ms
     TTFB               ███░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  26.74ms
 
-  ●  https://www.target.com  200 OK  HTTP/2.0  new connection
+  ●  https://www.vandan.co  200 OK  HTTP/2.0  new connection
     DNS Lookup         ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  2.11ms
     TCP Connection     ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  14.27ms
     TLS Handshake      ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░  49.84ms
@@ -55,17 +55,17 @@ The waterfall answers "where did time go overall." The trace answers "what exact
 ```
   Trace
 
-    →  http://target.com  301 Moved Permanently
-        +0ms   [+0ms]    Getting connection for target.com:443
-        +1ms   [+1ms]    DNS lookup starting for target.com
+    →  http://vandan.co  301 Moved Permanently
+        +0ms   [+0ms]    Getting connection for vandan.co:443
+        +1ms   [+1ms]    DNS lookup starting for vandan.co
         +8ms   [+7ms]    Connection attempt to 151.101.194.187:443
        +26ms  [+18ms]    TLS handshake starting
        +55ms  [+29ms]    TLS handshake completed
        +81ms  [+26ms]    First response byte received (TTFB)
 
-    ●  https://www.target.com  200 OK
-       +82ms   [+1ms]    Getting connection for www.target.com:443
-       +82ms   [+0ms]    DNS lookup starting for www.target.com
+    ●  https://www.vandan.co  200 OK
+       +82ms   [+1ms]    Getting connection for www.vandan.co:443
+       +82ms   [+0ms]    DNS lookup starting for www.vandan.co
        +84ms   [+2ms]    Connection attempt to 146.75.38.187:443
        +98ms  [+14ms]    TLS handshake starting
       +148ms  [+50ms]    TLS handshake completed
