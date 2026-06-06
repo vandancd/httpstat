@@ -1,4 +1,4 @@
-package main
+package probe
 
 import (
 	"bufio"
@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-// getSystemDNSServers reads system DNS servers from resolv.conf
 func getSystemDNSServers() []string {
 	file, err := os.Open("/etc/resolv.conf")
 	if err != nil {
@@ -31,7 +30,6 @@ func getSystemDNSServers() []string {
 	return servers
 }
 
-// createCustomResolver creates a custom DNS resolver that tries multiple DNS servers
 func createCustomResolver(dnsServers []string, log *TraceLog) *net.Resolver {
 	currentServer := 0
 	return &net.Resolver{

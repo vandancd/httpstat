@@ -1,4 +1,4 @@
-package main
+package probe
 
 import (
 	"context"
@@ -8,28 +8,6 @@ import (
 	"strings"
 	"time"
 )
-
-type ProbeOptions struct {
-	UseHTTP1     bool
-	UseHTTP11    bool
-	NoKeepAlive  bool
-	Timeout      time.Duration
-	MaxRedirects int
-	DNSServers   []string
-	PreferIPv6   bool
-	UserAgent    string
-}
-
-type ProbeResult struct {
-	URL           string
-	HTTPProtocol  string
-	StatusCode    int
-	Status        string
-	Redirects     []RedirectInfo
-	Timing        Timing
-	StartTime     time.Time
-	TraceMessages []TraceEvent
-}
 
 type customDialer struct {
 	*net.Dialer
@@ -58,7 +36,7 @@ func (d *customDialer) DialContext(ctx context.Context, network, address string)
 	return d.Dialer.DialContext(ctx, network, address)
 }
 
-func Run(url string, opts ProbeOptions) (ProbeResult, error) {
+func Run(ctx context.Context, url string, opts Options) (Result, error) {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "http://" + url
 	}
@@ -98,22 +76,22 @@ func Run(url string, opts ProbeOptions) (ProbeResult, error) {
 		CheckRedirect: rh.Handle,
 	}
 
-	req, err := createRequest(url, m, opts.UserAgent)
+	req, err := createRequest(ctx, url, m, opts.UserAgent)
 	if err != nil {
-		return ProbeResult{}, fmt.Errorf("creating request: %w", err)
+		return Result{}, fmt.Errorf("creating request: %w", err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return ProbeResult{}, fmt.Errorf("executing request: %w", err)
+		return Result{}, fmt.Errorf("executing request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if err := processResponseBody(resp, m, time.Now()); err != nil {
-		return ProbeResult{}, fmt.Errorf("reading response body: %w", err)
+		return Result{}, fmt.Errorf("reading response body: %w", err)
 	}
 
-	return ProbeResult{
+	return Result{
 		URL:           resp.Request.URL.String(),
 		HTTPProtocol:  resp.Proto,
 		StatusCode:    resp.StatusCode,

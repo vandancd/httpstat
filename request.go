@@ -3,62 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"time"
+
+	probe "github.com/vandancd/httpstat/pkg/probe"
 )
-
-type RedirectHandler struct {
-	log          *TraceLog
-	maxRedirects int
-	useCustomDNS bool
-	redirects    *[]RedirectInfo
-}
-
-func (h *RedirectHandler) Handle(req *http.Request, via []*http.Request) error {
-	if lastResponse := req.Response; lastResponse != nil {
-		if m := measurementFromContext(lastResponse.Request.Context()); m != nil {
-			*h.redirects = append(*h.redirects, RedirectInfo{
-				URL:           lastResponse.Request.URL.String(),
-				StatusCode:    lastResponse.StatusCode,
-				Status:        lastResponse.Status,
-				Protocol:      lastResponse.Proto,
-				StartTime:     m.StartTime(),
-				EndTime:       time.Now(),
-				Timing:        m.Result(),
-				TraceMessages: h.log.Flush(),
-			})
-			nextM := NewMeasurement(h.log, h.useCustomDNS)
-			*req = *req.WithContext(nextM.Instrument(req.Context()))
-		}
-	}
-
-	if len(via) >= h.maxRedirects {
-		return fmt.Errorf("stopped after %d redirects (max: %d)", len(via), h.maxRedirects)
-	}
-	return nil
-}
-
-func createRequest(url string, m *Measurement, userAgent string) (*http.Request, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	if userAgent != "" {
-		req.Header.Set("User-Agent", userAgent)
-	}
-	return req.WithContext(m.Instrument(req.Context())), nil
-}
-
-func processResponseBody(resp *http.Response, m *Measurement, bodyStart time.Time) error {
-	_, err := io.Copy(io.Discard, resp.Body)
-	if err != nil {
-		return err
-	}
-	m.FinishBody(bodyStart)
-	return nil
-}
 
 func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%.2fms", float64(d.Nanoseconds())/1e6)
@@ -110,51 +59,51 @@ type ResponseJSON struct {
 	Trace        TraceJSON      `json:"trace"`
 }
 
-func formatTraceEvents(probe ProbeResult) []string {
+func formatTraceEvents(p probe.Result) []string {
 	var out []string
-	for _, r := range probe.Redirects {
+	for _, r := range p.Redirects {
 		for _, e := range r.TraceMessages {
 			out = append(out, e.Time.Format("2006-01-02 15:04:05.000")+": "+e.Text)
 		}
 	}
-	for _, e := range probe.TraceMessages {
+	for _, e := range p.TraceMessages {
 		out = append(out, e.Time.Format("2006-01-02 15:04:05.000")+": "+e.Text)
 	}
 	return out
 }
 
-func printJSON(probe ProbeResult) {
+func printJSON(p probe.Result) {
 	connLabel := "new"
-	if probe.Timing.ReusedConnection {
+	if p.Timing.ReusedConnection {
 		connLabel = "reused"
 	}
 	result := ResponseJSON{
-		URL:          probe.URL,
-		HTTPProtocol: probe.HTTPProtocol,
-		StatusCode:   probe.StatusCode,
-		Status:       probe.Status,
+		URL:          p.URL,
+		HTTPProtocol: p.HTTPProtocol,
+		StatusCode:   p.StatusCode,
+		Status:       p.Status,
 		Connection:   connLabel,
 		Timing: TimingJSON{
-			TTFB:      formatDuration(probe.Timing.ServerProcessing),
-			TTLB:      formatDuration(probe.Timing.ContentTransfer),
-			TotalTime: formatDuration(probe.Timing.Total),
+			TTFB:      formatDuration(p.Timing.ServerProcessing),
+			TTLB:      formatDuration(p.Timing.ContentTransfer),
+			TotalTime: formatDuration(p.Timing.Total),
 		},
 		Trace: TraceJSON{
-			Messages: formatTraceEvents(probe),
+			Messages: formatTraceEvents(p),
 		},
 	}
 
-	if !probe.Timing.ReusedConnection {
-		result.Timing.DNSLookup = formatDuration(probe.Timing.DNSLookup)
-		result.Timing.TCPConnection = formatDuration(probe.Timing.TCPConnection)
-		result.Timing.TLSHandshake = formatDuration(probe.Timing.TLSHandshake)
+	if !p.Timing.ReusedConnection {
+		result.Timing.DNSLookup = formatDuration(p.Timing.DNSLookup)
+		result.Timing.TCPConnection = formatDuration(p.Timing.TCPConnection)
+		result.Timing.TLSHandshake = formatDuration(p.Timing.TLSHandshake)
 	}
 
-	if len(probe.Redirects) > 0 {
+	if len(p.Redirects) > 0 {
 		var totalRedirectTime time.Duration
-		redirectChain := make([]RedirectJSON, 0, len(probe.Redirects))
+		redirectChain := make([]RedirectJSON, 0, len(p.Redirects))
 
-		for _, redirect := range probe.Redirects {
+		for _, redirect := range p.Redirects {
 			totalRedirectTime += redirect.EndTime.Sub(redirect.StartTime)
 			redirectConnLabel := "new"
 			if redirect.Timing.ReusedConnection {
@@ -179,31 +128,31 @@ func printJSON(probe ProbeResult) {
 		}
 
 		result.Redirects = RedirectsJSON{
-			Count:     len(probe.Redirects),
+			Count:     len(p.Redirects),
 			TotalTime: formatDuration(totalRedirectTime),
 			Chain:     redirectChain,
 		}
 	}
 
 	var totalDNS, totalTCP, totalTLS time.Duration
-	for _, redirect := range probe.Redirects {
+	for _, redirect := range p.Redirects {
 		if !redirect.Timing.ReusedConnection {
 			totalDNS += redirect.Timing.DNSLookup
 			totalTCP += redirect.Timing.TCPConnection
 			totalTLS += redirect.Timing.TLSHandshake
 		}
 	}
-	if !probe.Timing.ReusedConnection {
-		totalDNS += probe.Timing.DNSLookup
-		totalTCP += probe.Timing.TCPConnection
-		totalTLS += probe.Timing.TLSHandshake
+	if !p.Timing.ReusedConnection {
+		totalDNS += p.Timing.DNSLookup
+		totalTCP += p.Timing.TCPConnection
+		totalTLS += p.Timing.TLSHandshake
 	}
 
 	var totalResponseTime time.Duration
-	if len(probe.Redirects) > 0 {
-		totalResponseTime = probe.Timing.Total + probe.StartTime.Sub(probe.Redirects[0].StartTime)
+	if len(p.Redirects) > 0 {
+		totalResponseTime = p.Timing.Total + p.StartTime.Sub(p.Redirects[0].StartTime)
 	} else {
-		totalResponseTime = probe.Timing.Total
+		totalResponseTime = p.Timing.Total
 	}
 
 	result.Totals = TotalTimesJSON{

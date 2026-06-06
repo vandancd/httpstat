@@ -1,4 +1,4 @@
-package main
+package probe
 
 import (
 	"context"
@@ -22,22 +22,18 @@ func NewMeasurement(log *TraceLog, useCustomDNS bool) *Measurement {
 	return &Measurement{log: log, start: time.Now(), useCustomDNS: useCustomDNS}
 }
 
-// Instrument wires httptrace callbacks into ctx and stores m in context.
 func (m *Measurement) Instrument(ctx context.Context) context.Context {
 	return context.WithValue(httptrace.WithClientTrace(ctx, createTracer(m)), measurementContextKey{}, m)
 }
 
-// FinishBody records ContentTransfer (from bodyStart to now) and Total (from m.start to now).
 func (m *Measurement) FinishBody(bodyStart time.Time) {
 	m.timing.ContentTransfer = time.Since(bodyStart)
 	m.log.Log("Response body fully read (TTLB)")
 	m.timing.Total = time.Since(m.start)
 }
 
-// Result returns the completed Timing.
 func (m *Measurement) Result() Timing { return m.timing }
 
-// StartTime returns when this measurement began.
 func (m *Measurement) StartTime() time.Time { return m.start }
 
 func measurementFromContext(ctx context.Context) *Measurement {
@@ -45,8 +41,6 @@ func measurementFromContext(ctx context.Context) *Measurement {
 	return m
 }
 
-// TraceEvent is a single timestamped trace message. The timestamp is stored
-// separately so renderers can compute elapsed and delta without parsing strings.
 type TraceEvent struct {
 	Time time.Time
 	Text string
@@ -61,7 +55,6 @@ type TraceLog struct {
 func (l *TraceLog) Log(format string, args ...interface{}) {
 	now := time.Now()
 	text := fmt.Sprintf(format, args...)
-	// Deduplicate consecutive identical messages within 10ms
 	if text == l.lastMessage && now.Sub(l.lastMessageTime) < 10*time.Millisecond {
 		return
 	}

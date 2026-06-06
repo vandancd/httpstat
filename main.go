@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
 	"time"
+
+	probe "github.com/vandancd/httpstat/pkg/probe"
 )
 
 const version = "1.1"
@@ -52,7 +55,7 @@ func main() {
 		}
 	}
 
-	result, err := Run(url, ProbeOptions{
+	result, err := probe.Run(context.Background(), url, probe.Options{
 		UseHTTP1:     *http1,
 		UseHTTP11:    *http11,
 		NoKeepAlive:  *noKeepAlive,

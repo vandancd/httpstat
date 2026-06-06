@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	probe "github.com/vandancd/httpstat/pkg/probe"
 )
 
 // ---------------------------------------------------------------------------
@@ -184,12 +186,12 @@ func captureStdout(fn func()) string {
 
 func TestPrintWaterfall_BasicOutput(t *testing.T) {
 	now := time.Now()
-	result := ProbeResult{
+	result := probe.Result{
 		URL:          "http://example.com/",
 		HTTPProtocol: "HTTP/1.1",
 		StatusCode:   200,
 		Status:       "200 OK",
-		Timing: Timing{
+		Timing: probe.Timing{
 			DNSLookup:        10 * time.Millisecond,
 			TCPConnection:    20 * time.Millisecond,
 			ServerProcessing: 150 * time.Millisecond,
@@ -210,12 +212,12 @@ func TestPrintWaterfall_BasicOutput(t *testing.T) {
 
 func TestPrintWaterfall_WithTrace(t *testing.T) {
 	now := time.Now()
-	result := ProbeResult{
+	result := probe.Result{
 		URL:          "http://example.com/trace",
 		HTTPProtocol: "HTTP/2.0",
 		StatusCode:   200,
 		Status:       "200 OK",
-		Timing: Timing{
+		Timing: probe.Timing{
 			DNSLookup:        5 * time.Millisecond,
 			TCPConnection:    10 * time.Millisecond,
 			ServerProcessing: 100 * time.Millisecond,
@@ -223,7 +225,7 @@ func TestPrintWaterfall_WithTrace(t *testing.T) {
 			Total:            155 * time.Millisecond,
 		},
 		StartTime: now,
-		TraceMessages: []TraceEvent{
+		TraceMessages: []probe.TraceEvent{
 			{Time: now, Text: "DNS lookup starting for example.com"},
 			{Time: now.Add(5 * time.Millisecond), Text: "Connection attempt to 93.184.216.34:80"},
 		},
@@ -240,12 +242,12 @@ func TestPrintWaterfall_WithTrace(t *testing.T) {
 
 func TestPrintWaterfall_WithRedirect(t *testing.T) {
 	now := time.Now()
-	result := ProbeResult{
+	result := probe.Result{
 		URL:          "http://example.com/final",
 		HTTPProtocol: "HTTP/1.1",
 		StatusCode:   200,
 		Status:       "200 OK",
-		Timing: Timing{
+		Timing: probe.Timing{
 			DNSLookup:        5 * time.Millisecond,
 			TCPConnection:    10 * time.Millisecond,
 			ServerProcessing: 80 * time.Millisecond,
@@ -253,7 +255,7 @@ func TestPrintWaterfall_WithRedirect(t *testing.T) {
 			Total:            125 * time.Millisecond,
 		},
 		StartTime: now.Add(50 * time.Millisecond),
-		Redirects: []RedirectInfo{
+		Redirects: []probe.RedirectInfo{
 			{
 				URL:        "http://example.com/",
 				StatusCode: 301,
@@ -261,7 +263,7 @@ func TestPrintWaterfall_WithRedirect(t *testing.T) {
 				Protocol:   "HTTP/1.1",
 				StartTime:  now,
 				EndTime:    now.Add(50 * time.Millisecond),
-				Timing: Timing{
+				Timing: probe.Timing{
 					DNSLookup:        5 * time.Millisecond,
 					TCPConnection:    10 * time.Millisecond,
 					ServerProcessing: 30 * time.Millisecond,

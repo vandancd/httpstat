@@ -1,8 +1,7 @@
-package main
+package probe
 
 import "time"
 
-// Timing holds timing information for various stages of the HTTP request
 type Timing struct {
 	DNSLookup        time.Duration
 	TCPConnection    time.Duration
@@ -13,7 +12,6 @@ type Timing struct {
 	ReusedConnection bool
 }
 
-// RedirectInfo holds information about a redirect
 type RedirectInfo struct {
 	URL           string
 	StatusCode    int
@@ -25,3 +23,24 @@ type RedirectInfo struct {
 	TraceMessages []TraceEvent
 }
 
+type Result struct {
+	URL           string
+	HTTPProtocol  string
+	StatusCode    int
+	Status        string
+	Redirects     []RedirectInfo
+	Timing        Timing
+	StartTime     time.Time
+	TraceMessages []TraceEvent
+}
+
+type Options struct {
+	UseHTTP1     bool
+	UseHTTP11    bool
+	NoKeepAlive  bool
+	Timeout      time.Duration
+	MaxRedirects int
+	DNSServers   []string
+	PreferIPv6   bool
+	UserAgent    string
+}

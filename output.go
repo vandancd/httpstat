@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	probe "github.com/vandancd/httpstat/pkg/probe"
 )
 
 const barWidth = 40
@@ -73,7 +75,7 @@ func printHopHeader(marker, url string, statusCode int, status, protocol, connec
 	)
 }
 
-func printHopPhases(t Timing, grandTotal time.Duration, showTTLB bool) {
+func printHopPhases(t probe.Timing, grandTotal time.Duration, showTTLB bool) {
 	if !t.ReusedConnection {
 		printPhase("DNS Lookup", t.DNSLookup, grandTotal, colorCyan)
 		printPhase("TCP Connection", t.TCPConnection, grandTotal, colorCyan)
@@ -100,7 +102,7 @@ func eventPhaseColor(text string, ttfb time.Duration) string {
 	}
 }
 
-func printHopTrace(events []TraceEvent, marker, url string, statusCode int, status string, ttfb time.Duration, probeStart time.Time, lastTime *time.Time) {
+func printHopTrace(events []probe.TraceEvent, marker, url string, statusCode int, status string, ttfb time.Duration, probeStart time.Time, lastTime *time.Time) {
 	sc := statusColor(statusCode)
 	fmt.Printf("\n  %s%s%s  %s%s%s  %s%s%s\n",
 		colorBold, marker, colorReset,
@@ -120,7 +122,7 @@ func printHopTrace(events []TraceEvent, marker, url string, statusCode int, stat
 	}
 }
 
-func printWaterfall(result ProbeResult, showTrace bool) {
+func printWaterfall(result probe.Result, showTrace bool) {
 	grandTotal := result.Timing.Total
 	if len(result.Redirects) > 0 {
 		grandTotal += result.StartTime.Sub(result.Redirects[0].StartTime)
@@ -149,7 +151,6 @@ func printWaterfall(result ProbeResult, showTrace bool) {
 	)
 
 	if showTrace {
-		// Find probe start: the time of the very first event across all hops
 		var probeStart time.Time
 		if len(result.Redirects) > 0 && len(result.Redirects[0].TraceMessages) > 0 {
 			probeStart = result.Redirects[0].TraceMessages[0].Time
