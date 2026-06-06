@@ -24,6 +24,12 @@ go.work.sum
 # env file
 .env
 
+# GoReleaser output
+dist/
+
+# compiled binary
+httpstat
+
 # macOS
 .DS_Store
 .AppleDouble
