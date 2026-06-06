@@ -8,8 +8,12 @@ import (
 	"time"
 )
 
+const version = "1.0"
+
 func main() {
 	fs := flag.NewFlagSet("httpstat", flag.ContinueOnError)
+	showVersion := fs.Bool("version", false, "Print version and exit")
+	userAgent := fs.String("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", "User-Agent header to send")
 	http1 := fs.Bool("http1", false, "Use HTTP/1.0")
 	http11 := fs.Bool("http1.1", false, "Use HTTP/1.1")
 	noKeepAlive := fs.Bool("no-keepalive", false, "Disable keep-alive connections")
@@ -24,6 +28,16 @@ func main() {
 	url, err := parseCommandLine(fs)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	if *showVersion {
+		fmt.Printf("httpstat %s\n", version)
+		return
+	}
+
+	if url == "" {
+		fmt.Fprintf(os.Stderr, "usage: %s [--http1 | --http1.1 | --http2] [--no-keepalive] [--timeout seconds] [--max-redirects count] [--dns-servers server1,server2] <url>\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -55,6 +69,7 @@ func main() {
 		MaxRedirects: *maxRedirects,
 		DNSServers:   servers,
 		PreferIPv6:   *useIPv6,
+		UserAgent:    *userAgent,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -80,11 +95,10 @@ func parseCommandLine(fs *flag.FlagSet) (string, error) {
 	}
 
 	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			os.Exit(0)
+		}
 		return "", fmt.Errorf("error parsing flags: %v", err)
-	}
-
-	if url == "" {
-		return "", fmt.Errorf("usage: %s [--http1 | --http1.1 | --http2] [--no-keepalive] [--timeout seconds] [--max-redirects count] [--dns-servers server1,server2] <url>", os.Args[0])
 	}
 
 	return url, nil

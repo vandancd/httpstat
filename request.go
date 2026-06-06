@@ -35,10 +35,13 @@ func handleRedirect(req *http.Request, via []*http.Request, redirects *[]Redirec
 }
 
 // createRequest creates a new HTTP request with tracing enabled
-func createRequest(url string, m *Measurement) (*http.Request, error) {
+func createRequest(url string, m *Measurement, userAgent string) (*http.Request, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
+	}
+	if userAgent != "" {
+		req.Header.Set("User-Agent", userAgent)
 	}
 	return req.WithContext(m.Instrument(req.Context())), nil
 }

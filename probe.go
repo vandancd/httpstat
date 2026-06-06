@@ -17,6 +17,7 @@ type ProbeOptions struct {
 	MaxRedirects int
 	DNSServers   []string
 	PreferIPv6   bool
+	UserAgent    string
 }
 
 type ProbeResult struct {
@@ -93,7 +94,7 @@ func Run(url string, opts ProbeOptions) (ProbeResult, error) {
 		},
 	}
 
-	req, err := createRequest(url, m)
+	req, err := createRequest(url, m, opts.UserAgent)
 	if err != nil {
 		return ProbeResult{}, fmt.Errorf("creating request: %w", err)
 	}
