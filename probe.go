@@ -58,7 +58,6 @@ func (d *customDialer) DialContext(ctx context.Context, network, address string)
 	return d.Dialer.DialContext(ctx, network, address)
 }
 
-// Run executes an instrumented HTTP probe against url and returns the result.
 func Run(url string, opts ProbeOptions) (ProbeResult, error) {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "http://" + url
@@ -86,12 +85,17 @@ func Run(url string, opts ProbeOptions) (ProbeResult, error) {
 	m := NewMeasurement(log, useCustomDNS)
 	redirects := make([]RedirectInfo, 0)
 
+	rh := &RedirectHandler{
+		log:          log,
+		maxRedirects: opts.MaxRedirects,
+		useCustomDNS: useCustomDNS,
+		redirects:    &redirects,
+	}
+
 	client := &http.Client{
-		Transport: transport,
-		Timeout:   opts.Timeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return handleRedirect(req, via, &redirects, opts.MaxRedirects, log, useCustomDNS)
-		},
+		Transport:     transport,
+		Timeout:       opts.Timeout,
+		CheckRedirect: rh.Handle,
 	}
 
 	req, err := createRequest(url, m, opts.UserAgent)

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const version = "1.0"
+const version = "1.1"
 
 func main() {
 	fs := flag.NewFlagSet("httpstat", flag.ContinueOnError)
@@ -21,7 +21,6 @@ func main() {
 	maxRedirects := fs.Int("max-redirects", 5, "Maximum number of redirects allowed (default: 5, range: 2-10)")
 	dnsServers := fs.String("dns-servers", "", "Comma-separated list of DNS server IP addresses (e.g., 8.8.8.8,8.8.4.4)")
 	useIPv6 := fs.Bool("ipv6", false, "Prefer IPv6 connections over IPv4")
-	browser := fs.Bool("browser", false, "Use headless browser probe")
 	asJSON := fs.Bool("json", false, "Output results as JSON")
 	showTrace := fs.Bool("trace", false, "Show trace messages in output")
 
@@ -44,14 +43,6 @@ func main() {
 	if *maxRedirects < 2 || *maxRedirects > 10 {
 		fmt.Fprintf(os.Stderr, "Error: max-redirects must be between 2 and 10\n")
 		os.Exit(1)
-	}
-
-	if *browser {
-		if err := runBrowserProbe(url); err != nil {
-			fmt.Fprintf(os.Stderr, "Browser probe failed: %v\n", err)
-			os.Exit(1)
-		}
-		return
 	}
 
 	var servers []string

@@ -9,11 +9,17 @@ import (
 	"time"
 )
 
-// handleRedirect handles HTTP redirects and collects timing information
-func handleRedirect(req *http.Request, via []*http.Request, redirects *[]RedirectInfo, maxRedirects int, log *TraceLog, useCustomDNS bool) error {
+type RedirectHandler struct {
+	log          *TraceLog
+	maxRedirects int
+	useCustomDNS bool
+	redirects    *[]RedirectInfo
+}
+
+func (h *RedirectHandler) Handle(req *http.Request, via []*http.Request) error {
 	if lastResponse := req.Response; lastResponse != nil {
 		if m := measurementFromContext(lastResponse.Request.Context()); m != nil {
-			*redirects = append(*redirects, RedirectInfo{
+			*h.redirects = append(*h.redirects, RedirectInfo{
 				URL:           lastResponse.Request.URL.String(),
 				StatusCode:    lastResponse.StatusCode,
 				Status:        lastResponse.Status,
@@ -21,20 +27,19 @@ func handleRedirect(req *http.Request, via []*http.Request, redirects *[]Redirec
 				StartTime:     m.StartTime(),
 				EndTime:       time.Now(),
 				Timing:        m.Result(),
-				TraceMessages: log.Flush(),
+				TraceMessages: h.log.Flush(),
 			})
-			nextM := NewMeasurement(log, useCustomDNS)
+			nextM := NewMeasurement(h.log, h.useCustomDNS)
 			*req = *req.WithContext(nextM.Instrument(req.Context()))
 		}
 	}
 
-	if len(via) >= maxRedirects {
-		return fmt.Errorf("stopped after %d redirects (max: %d)", len(via), maxRedirects)
+	if len(via) >= h.maxRedirects {
+		return fmt.Errorf("stopped after %d redirects (max: %d)", len(via), h.maxRedirects)
 	}
 	return nil
 }
 
-// createRequest creates a new HTTP request with tracing enabled
 func createRequest(url string, m *Measurement, userAgent string) (*http.Request, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -46,7 +51,6 @@ func createRequest(url string, m *Measurement, userAgent string) (*http.Request,
 	return req.WithContext(m.Instrument(req.Context())), nil
 }
 
-// processResponseBody reads the response body and records transfer timing.
 func processResponseBody(resp *http.Response, m *Measurement, bodyStart time.Time) error {
 	_, err := io.Copy(io.Discard, resp.Body)
 	if err != nil {
@@ -56,12 +60,10 @@ func processResponseBody(resp *http.Response, m *Measurement, bodyStart time.Tim
 	return nil
 }
 
-// formatDuration formats a duration in milliseconds with 2 decimal places
 func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%.2fms", float64(d.Nanoseconds())/1e6)
 }
 
-// TimingJSON represents timing information in JSON format
 type TimingJSON struct {
 	DNSLookup     string `json:"dns_lookup,omitempty"`
 	TCPConnection string `json:"tcp_connection,omitempty"`
@@ -71,7 +73,6 @@ type TimingJSON struct {
 	TotalTime     string `json:"total_time"`
 }
 
-// RedirectJSON represents a single redirect in JSON format
 type RedirectJSON struct {
 	URL        string     `json:"url"`
 	StatusCode int        `json:"status_code"`
@@ -80,14 +81,12 @@ type RedirectJSON struct {
 	Timing     TimingJSON `json:"timing"`
 }
 
-// RedirectsJSON represents redirect information in JSON format
 type RedirectsJSON struct {
 	Count     int            `json:"count"`
 	TotalTime string         `json:"total_time"`
 	Chain     []RedirectJSON `json:"chain"`
 }
 
-// TotalTimesJSON represents total timing information in JSON format
 type TotalTimesJSON struct {
 	DNSLookups        string `json:"dns_lookups"`
 	TCPConnections    string `json:"tcp_connections"`
@@ -95,12 +94,10 @@ type TotalTimesJSON struct {
 	TotalResponseTime string `json:"total_response_time"`
 }
 
-// TraceJSON represents trace information in JSON format
 type TraceJSON struct {
 	Messages []string `json:"messages"`
 }
 
-// ResponseJSON represents the complete HTTP response information in JSON format
 type ResponseJSON struct {
 	URL          string         `json:"url"`
 	HTTPProtocol string         `json:"http_protocol"`
@@ -113,8 +110,6 @@ type ResponseJSON struct {
 	Trace        TraceJSON      `json:"trace"`
 }
 
-// formatTraceEvents combines all hop trace events in order and formats them
-// as "timestamp: text" strings for JSON consumers.
 func formatTraceEvents(probe ProbeResult) []string {
 	var out []string
 	for _, r := range probe.Redirects {
@@ -128,7 +123,6 @@ func formatTraceEvents(probe ProbeResult) []string {
 	return out
 }
 
-// printJSON formats and prints the probe result as JSON.
 func printJSON(probe ProbeResult) {
 	connLabel := "new"
 	if probe.Timing.ReusedConnection {

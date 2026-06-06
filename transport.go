@@ -8,60 +8,43 @@ import (
 	"time"
 )
 
-// dialContextFunc is a type for the DialContext function
 type dialContextFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
-// createTransport creates an HTTP transport with the specified configuration
+func baseTransport(noKeepAlive bool, dialContext dialContextFunc) *http.Transport {
+	return &http.Transport{
+		DisableKeepAlives:     noKeepAlive,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   100,
+		MaxConnsPerHost:       100,
+		IdleConnTimeout:       90 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		DisableCompression:    true,
+		DialContext:           dialContext,
+	}
+}
+
 func createTransport(useHTTP1, useHTTP11, noKeepAlive bool, dialContext dialContextFunc) *http.Transport {
 	switch {
 	case useHTTP1:
-		return &http.Transport{
-			TLSNextProto: make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
-			TLSClientConfig: &tls.Config{
-				MaxVersion: tls.VersionTLS12,
-			},
-			ForceAttemptHTTP2:     false,
-			DisableKeepAlives:     noKeepAlive,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   100,
-			MaxConnsPerHost:       100,
-			IdleConnTimeout:       90 * time.Second,
-			ResponseHeaderTimeout: 10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			DisableCompression:    true,
-			DialContext:           dialContext,
-		}
+		t := baseTransport(noKeepAlive, dialContext)
+		t.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
+		t.TLSClientConfig = &tls.Config{MaxVersion: tls.VersionTLS12}
+		t.ForceAttemptHTTP2 = false
+		return t
 	case useHTTP11:
-		return &http.Transport{
-			TLSNextProto:          make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
-			ForceAttemptHTTP2:     false,
-			DisableKeepAlives:     noKeepAlive,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   100,
-			MaxConnsPerHost:       100,
-			IdleConnTimeout:       90 * time.Second,
-			ResponseHeaderTimeout: 10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			DisableCompression:    true,
-			DialContext:           dialContext,
+		t := baseTransport(noKeepAlive, dialContext)
+		t.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
+		t.ForceAttemptHTTP2 = false
+		return t
+	default:
+		t := baseTransport(noKeepAlive, dialContext)
+		t.ForceAttemptHTTP2 = true
+		t.TLSClientConfig = &tls.Config{
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: false,
+			ClientSessionCache: tls.NewLRUClientSessionCache(100),
 		}
-	default: // HTTP/2 is default
-		return &http.Transport{
-			ForceAttemptHTTP2:     true,
-			DisableKeepAlives:     noKeepAlive,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   100,
-			MaxConnsPerHost:       100,
-			IdleConnTimeout:       90 * time.Second,
-			ResponseHeaderTimeout: 10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			DisableCompression:    true,
-			DialContext:           dialContext,
-			TLSClientConfig: &tls.Config{
-				MinVersion:         tls.VersionTLS12,
-				InsecureSkipVerify: false,
-				ClientSessionCache: tls.NewLRUClientSessionCache(100),
-			},
-		}
+		return t
 	}
 }
