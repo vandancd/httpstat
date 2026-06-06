@@ -22,10 +22,7 @@ archives:
 checksum:
   name_template: checksums.txt
 
-homebrew_casks:
-  - name: httpstat
-    repository:
-      owner: vandancd
-      name: homebrew-tap
-    homepage: "https://github.com/vandancd/httpstat"
-    description: "HTTP performance measurement tool with waterfall output and trace"
+# Homebrew formula is maintained manually in vandancd/homebrew-tap.
+# On each release, update Formula/httpstat.rb with the new version tag and
+# the sha256 of the new source tarball:
+#   shasum -a 256 <(curl -sL https://github.com/vandancd/httpstat/archive/refs/tags/vX.Y.Z.tar.gz)
