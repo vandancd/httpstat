@@ -1,6 +1,18 @@
 # httpstat
 `httpstat` a CLI tool that measures and visualises HTTP request performance from the terminal.
 
+# Installation
+
+## Homebrew (macOS / Linux)
+```sh
+brew install vandancd/tap/httpstat
+```
+
+## From source
+```sh
+go install github.com/vandancd/httpstat@latest
+```
+
 # Usage
 `httpstat <url>`
 
