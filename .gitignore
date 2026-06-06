@@ -34,6 +34,7 @@ httpstat
 CLAUDE.md
 CONTEXT.md
 docs/
+.claude/
 
 # macOS
 .DS_Store
