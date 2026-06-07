@@ -78,22 +78,14 @@ func main() {
 }
 
 func parseCommandLine(fs *flag.FlagSet) (string, error) {
-	var url string
-	var args []string
-	for _, arg := range os.Args[1:] {
-		if !strings.HasPrefix(arg, "-") {
-			url = arg
-		} else {
-			args = append(args, arg)
-		}
-	}
-
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(os.Args[1:]); err != nil {
 		if err == flag.ErrHelp {
 			os.Exit(0)
 		}
 		return "", fmt.Errorf("error parsing flags: %v", err)
 	}
-
-	return url, nil
+	if args := fs.Args(); len(args) > 0 {
+		return args[0], nil
+	}
+	return "", nil
 }
