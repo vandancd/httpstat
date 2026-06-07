@@ -76,7 +76,7 @@ func Run(ctx context.Context, url string, opts Options) (Result, error) {
 		CheckRedirect: rh.Handle,
 	}
 
-	req, err := createRequest(ctx, url, m, opts.UserAgent)
+	req, err := createRequest(ctx, url, m, opts)
 	if err != nil {
 		return Result{}, fmt.Errorf("creating request: %w", err)
 	}

@@ -13,6 +13,17 @@ import (
 
 const version = "1.1"
 
+type headerFlags []string
+
+func (h *headerFlags) String() string { return strings.Join(*h, ", ") }
+func (h *headerFlags) Set(v string) error {
+	if !strings.Contains(v, ":") {
+		return fmt.Errorf("invalid header %q: must be in \"Key: Value\" format", v)
+	}
+	*h = append(*h, v)
+	return nil
+}
+
 func main() {
 	fs := flag.NewFlagSet("httpstat", flag.ContinueOnError)
 	showVersion := fs.Bool("version", false, "Print version and exit")
@@ -26,6 +37,14 @@ func main() {
 	useIPv6 := fs.Bool("ipv6", false, "Prefer IPv6 connections over IPv4")
 	asJSON := fs.Bool("output-json", false, "Output results as JSON")
 	showTrace := fs.Bool("trace", false, "Show trace messages in output")
+
+	var method string
+	fs.StringVar(&method, "X", "", "HTTP method (e.g. GET, POST, PUT, DELETE)")
+	fs.StringVar(&method, "method", "", "HTTP method (alias for -X)")
+
+	var headers headerFlags
+	fs.Var(&headers, "H", "Request header in \"Key: Value\" format (repeatable)")
+	fs.Var(&headers, "header", "Request header in \"Key: Value\" format (alias for -H)")
 
 	url, err := parseCommandLine(fs)
 	if err != nil {
@@ -55,6 +74,22 @@ func main() {
 		}
 	}
 
+	userAgentExplicit := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "user-agent" {
+			userAgentExplicit = true
+		}
+	})
+	if userAgentExplicit {
+		for _, h := range headers {
+			key := strings.TrimSpace(strings.SplitN(h, ":", 2)[0])
+			if strings.EqualFold(key, "user-agent") {
+				fmt.Fprintf(os.Stderr, "Error: cannot use both --user-agent and -H \"User-Agent: ...\"\n")
+				os.Exit(1)
+			}
+		}
+	}
+
 	result, err := probe.Run(context.Background(), url, probe.Options{
 		UseHTTP1:     *http1,
 		UseHTTP11:    *http11,
@@ -64,6 +99,8 @@ func main() {
 		DNSServers:   servers,
 		PreferIPv6:   *useIPv6,
 		UserAgent:    *userAgent,
+		Method:       method,
+		Headers:      []string(headers),
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

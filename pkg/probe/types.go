@@ -43,4 +43,6 @@ type Options struct {
 	DNSServers   []string
 	PreferIPv6   bool
 	UserAgent    string
+	Method       string
+	Headers      []string
 }

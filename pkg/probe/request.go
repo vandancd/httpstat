@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -39,13 +40,21 @@ func (h *RedirectHandler) Handle(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
-func createRequest(ctx context.Context, url string, m *Measurement, userAgent string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+func createRequest(ctx context.Context, url string, m *Measurement, opts Options) (*http.Request, error) {
+	method := opts.Method
+	if method == "" {
+		method = "GET"
+	}
+	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	if userAgent != "" {
-		req.Header.Set("User-Agent", userAgent)
+	if opts.UserAgent != "" {
+		req.Header.Set("User-Agent", opts.UserAgent)
+	}
+	for _, h := range opts.Headers {
+		parts := strings.SplitN(h, ":", 2)
+		req.Header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
 	}
 	return req.WithContext(m.Instrument(req.Context())), nil
 }
