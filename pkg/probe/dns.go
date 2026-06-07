@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync/atomic"
 )
 
 func getSystemDNSServers() []string {
@@ -31,14 +32,15 @@ func getSystemDNSServers() []string {
 }
 
 func createCustomResolver(dnsServers []string, log *TraceLog) *net.Resolver {
-	currentServer := 0
+	var counter atomic.Int32
+	n := int32(len(dnsServers))
 	return &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			var lastErr error
 			for i := 0; i < len(dnsServers); i++ {
-				server := dnsServers[currentServer]
-				currentServer = (currentServer + 1) % len(dnsServers)
+				idx := int(counter.Add(1)-1) % int(n)
+				server := dnsServers[idx]
 
 				log.Log("Attempting DNS resolution using server: %s", server)
 				conn, err := net.Dial("udp", server+":53")
