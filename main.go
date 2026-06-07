@@ -46,6 +46,14 @@ func main() {
 	fs.Var(&headers, "H", "Request header in \"Key: Value\" format (repeatable)")
 	fs.Var(&headers, "header", "Request header in \"Key: Value\" format (alias for -H)")
 
+	bearer := fs.String("bearer", "", "Bearer token for Authorization header")
+
+	var body string
+	fs.StringVar(&body, "d", "", "Request body (raw string literal)")
+	fs.StringVar(&body, "data", "", "Request body (alias for -d)")
+
+	jsonBody := fs.String("json", "", "Request body as JSON; sets Content-Type and Accept to application/json")
+
 	url, err := parseCommandLine(fs)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -80,14 +88,26 @@ func main() {
 			userAgentExplicit = true
 		}
 	})
-	if userAgentExplicit {
-		for _, h := range headers {
-			key := strings.TrimSpace(strings.SplitN(h, ":", 2)[0])
-			if strings.EqualFold(key, "user-agent") {
-				fmt.Fprintf(os.Stderr, "Error: cannot use both --user-agent and -H \"User-Agent: ...\"\n")
-				os.Exit(1)
-			}
+	for _, h := range headers {
+		key := strings.TrimSpace(strings.SplitN(h, ":", 2)[0])
+		if userAgentExplicit && strings.EqualFold(key, "user-agent") {
+			fmt.Fprintf(os.Stderr, "Error: cannot use both --user-agent and -H \"User-Agent: ...\"\n")
+			os.Exit(1)
 		}
+		if *bearer != "" && strings.EqualFold(key, "authorization") {
+			fmt.Fprintf(os.Stderr, "Error: cannot use both --bearer and -H \"Authorization: ...\"\n")
+			os.Exit(1)
+		}
+	}
+
+	if body != "" && *jsonBody != "" {
+		fmt.Fprintf(os.Stderr, "Error: cannot use both --data and --json\n")
+		os.Exit(1)
+	}
+
+	effectiveMethod := method
+	if effectiveMethod == "" && (body != "" || *jsonBody != "") {
+		effectiveMethod = "POST"
 	}
 
 	result, err := probe.Run(context.Background(), url, probe.Options{
@@ -99,8 +119,11 @@ func main() {
 		DNSServers:   servers,
 		PreferIPv6:   *useIPv6,
 		UserAgent:    *userAgent,
-		Method:       method,
+		Method:       effectiveMethod,
 		Headers:      []string(headers),
+		BearerToken:  *bearer,
+		Body:         body,
+		JSONBody:     *jsonBody,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

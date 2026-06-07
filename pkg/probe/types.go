@@ -45,4 +45,7 @@ type Options struct {
 	UserAgent    string
 	Method       string
 	Headers      []string
+	BearerToken  string
+	Body         string
+	JSONBody     string
 }

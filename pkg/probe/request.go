@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+
+
 type RedirectHandler struct {
 	log          *TraceLog
 	maxRedirects int
@@ -45,12 +47,28 @@ func createRequest(ctx context.Context, url string, m *Measurement, opts Options
 	if method == "" {
 		method = "GET"
 	}
-	req, err := http.NewRequestWithContext(ctx, method, url, nil)
+
+	var body io.Reader
+	if opts.JSONBody != "" {
+		body = strings.NewReader(opts.JSONBody)
+	} else if opts.Body != "" {
+		body = strings.NewReader(opts.Body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
+
+	if opts.JSONBody != "" {
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+	}
 	if opts.UserAgent != "" {
 		req.Header.Set("User-Agent", opts.UserAgent)
+	}
+	if opts.BearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+opts.BearerToken)
 	}
 	for _, h := range opts.Headers {
 		parts := strings.SplitN(h, ":", 2)
