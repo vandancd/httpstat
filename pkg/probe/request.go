@@ -23,11 +23,19 @@ func buildHeaders(opts Options) http.Header {
 	if opts.BearerToken != "" {
 		h.Set("Authorization", "Bearer "+opts.BearerToken)
 	}
+	seen := make(map[string]bool)
 	for _, entry := range opts.Headers {
 		parts := strings.SplitN(entry, ":", 2)
-		if len(parts) == 2 {
-			h.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		if len(parts) != 2 {
+			continue
 		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		if !seen[strings.ToLower(key)] {
+			h.Del(key) // first explicit occurrence replaces any auto-set value
+			seen[strings.ToLower(key)] = true
+		}
+		h.Add(key, val)
 	}
 	return h
 }
@@ -80,11 +88,7 @@ func createRequest(ctx context.Context, url string, m *Measurement, opts Options
 	if err != nil {
 		return nil, err
 	}
-	for key, vals := range buildHeaders(opts) {
-		for _, v := range vals {
-			req.Header.Set(key, v)
-		}
-	}
+	req.Header = buildHeaders(opts)
 	return req.WithContext(m.Instrument(req.Context())), nil
 }
 

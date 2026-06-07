@@ -61,12 +61,15 @@ func TestRun_CustomTransport_IsCalled(t *testing.T) {
 }
 
 func TestRun_CustomTransport_OverridesDialContext(t *testing.T) {
-	dialerCalled := false
+	dialerCalled := make(chan struct{}, 1)
 	transportCalled := make(chan struct{}, 1)
 
 	_, _ = Run(context.Background(), "http://test.invalid/", Options{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			dialerCalled = true
+			select {
+			case dialerCalled <- struct{}{}:
+			default:
+			}
 			return nil, fmt.Errorf("should not be reached")
 		},
 		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
@@ -85,7 +88,9 @@ func TestRun_CustomTransport_OverridesDialContext(t *testing.T) {
 	default:
 		t.Error("Transport was not called")
 	}
-	if dialerCalled {
+	select {
+	case <-dialerCalled:
 		t.Error("DialContext should not be called when Transport is injected")
+	default:
 	}
 }

@@ -79,3 +79,36 @@ func TestBuildHeaders_NoUserAgentWhenEmpty(t *testing.T) {
 		t.Errorf("expected no User-Agent, got %q", got)
 	}
 }
+
+func TestBuildHeaders_DuplicateKeysAccumulate(t *testing.T) {
+	h := buildHeaders(Options{
+		Headers: []string{
+			"Cookie: session=abc",
+			"Cookie: csrf=xyz",
+		},
+	})
+	vals := h["Cookie"]
+	if len(vals) != 2 {
+		t.Fatalf("expected 2 Cookie values, got %d: %v", len(vals), vals)
+	}
+	if vals[0] != "session=abc" || vals[1] != "csrf=xyz" {
+		t.Errorf("unexpected Cookie values: %v", vals)
+	}
+}
+
+func TestBuildHeaders_DuplicateKeyOverridesAutoThenAccumulates(t *testing.T) {
+	h := buildHeaders(Options{
+		JSONBody: `{"a":1}`,
+		Headers: []string{
+			"Content-Type: text/plain",
+			"Content-Type: text/html",
+		},
+	})
+	vals := h["Content-Type"]
+	if len(vals) != 2 {
+		t.Fatalf("expected 2 Content-Type values, got %d: %v", len(vals), vals)
+	}
+	if vals[0] != "text/plain" || vals[1] != "text/html" {
+		t.Errorf("unexpected Content-Type values: %v", vals)
+	}
+}
