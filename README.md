@@ -79,6 +79,74 @@ The waterfall answers "where did time go overall." The trace answers "what exact
 - Phase-colored events: the same color palette as the waterfall bars, so DNS events are cyan, TLS events are yellow, TTFB events are severity-colored. The colors make the phase structure visible even in a flat list.
 - No wall-clock timestamps, absolute timestamps are useless for debugging. What matters is relative time.
 
+## Request Control
+
+Control the HTTP method, headers, and body sent with each probe.
+
+### Method (`--method` / `-X`)
+
+Override the HTTP method. Defaults to `GET`; automatically becomes `POST` when a body flag is provided.
+
+```sh
+httpstat -X PUT https://httpbin.org/put
+httpstat --method DELETE https://httpbin.org/delete
+```
+
+### Headers (`--header` / `-H`)
+
+Add request headers. Repeatable. The same key may appear more than once — all values are sent.
+
+```sh
+httpstat -H "Accept: application/json" https://httpbin.org/get
+httpstat -H "X-Request-ID: abc123" -H "X-Tenant: acme" https://httpbin.org/get
+
+# Send two cookies
+httpstat -H "Cookie: session=abc" -H "Cookie: csrf=xyz" https://httpbin.org/get
+```
+
+### Raw body (`--data` / `-d`)
+
+Send a raw request body. No `Content-Type` is set automatically — add one with `-H` if needed. Implies `POST` when `--method` is not set.
+
+```sh
+httpstat -d "hello=world" https://httpbin.org/post
+httpstat -d "hello=world" -H "Content-Type: application/x-www-form-urlencoded" https://httpbin.org/post
+```
+
+### JSON body (`--json`)
+
+Send a JSON request body. Automatically sets `Content-Type: application/json` and `Accept: application/json`. Implies `POST` when `--method` is not set.
+
+```sh
+httpstat --json '{"user":"alice","role":"admin"}' https://httpbin.org/post
+
+# Override Content-Type if the endpoint expects a different media type
+httpstat --json '{"x":1}' -H "Content-Type: application/merge-patch+json" -X PATCH https://httpbin.org/patch
+```
+
+### Bearer token (`--bearer`)
+
+Inject an `Authorization: Bearer <token>` header. Conflicts with `-H "Authorization: ..."`.
+
+```sh
+httpstat --bearer eyJhbGci... https://httpbin.org/bearer
+```
+
+### Conflict detection
+
+Mutually exclusive flag combinations are caught early with a clear error:
+
+```sh
+# Error: --data and --json cannot both be set
+httpstat --data "foo" --json '{"x":1}' https://httpbin.org/post
+
+# Error: --bearer and -H "Authorization: ..." cannot both be set
+httpstat --bearer tok -H "Authorization: Basic dXNlcjpwYXNz" https://httpbin.org/get
+
+# Error: --user-agent and -H "User-Agent: ..." cannot both be set
+httpstat --user-agent "MyBot/1.0" -H "User-Agent: OtherBot" https://httpbin.org/get
+```
+
 ## Other Capabilities
   - `--output-json` flag outputs all timing and trace data as structured JSON, suitable for piping into jq or logging systems
   - `--dns-servers` lets you override DNS resolution to test split-horizon DNS, compare CDN PoPs, or diagnose DNS propagation
