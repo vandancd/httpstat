@@ -49,17 +49,29 @@ func Run(ctx context.Context, url string, opts Options) (Result, error) {
 		netResolver = createCustomResolver(opts.DNSServers, log)
 	}
 
-	dialer := &customDialer{
-		Dialer: &net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-			Resolver:  netResolver,
-			DualStack: !opts.PreferIPv6,
-		},
-		preferIPv6: opts.PreferIPv6,
+	var dialCtx dialContextFunc
+	if opts.DialContext != nil {
+		dialCtx = opts.DialContext
+	} else {
+		dialer := &customDialer{
+			Dialer: &net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				Resolver:  netResolver,
+				DualStack: !opts.PreferIPv6,
+			},
+			preferIPv6: opts.PreferIPv6,
+		}
+		dialCtx = dialer.DialContext
 	}
 
-	transport := createTransport(opts.UseHTTP1, opts.UseHTTP11, opts.NoKeepAlive, dialer.DialContext)
+	var roundTripper http.RoundTripper
+	if opts.Transport != nil {
+		roundTripper = opts.Transport
+	} else {
+		roundTripper = createTransport(opts.UseHTTP1, opts.UseHTTP11, opts.NoKeepAlive, dialCtx)
+	}
+
 	m := NewMeasurement(log, useCustomDNS)
 	redirects := make([]RedirectInfo, 0)
 
@@ -71,7 +83,7 @@ func Run(ctx context.Context, url string, opts Options) (Result, error) {
 	}
 
 	client := &http.Client{
-		Transport:     transport,
+		Transport:     roundTripper,
 		Timeout:       opts.Timeout,
 		CheckRedirect: rh.Handle,
 	}
