@@ -24,6 +24,63 @@ func (h *headerFlags) Set(v string) error {
 	return nil
 }
 
+func validateAndBuildOptions(
+	userAgent string,
+	userAgentExplicit bool,
+	http1, http11, noKeepAlive bool,
+	timeout int,
+	maxRedirects int,
+	dnsServers []string,
+	useIPv6 bool,
+	method string,
+	headers []string,
+	bearer string,
+	body string,
+	jsonBody string,
+) (probe.Options, error) {
+	if userAgentExplicit {
+		for _, h := range headers {
+			name := strings.TrimSpace(strings.SplitN(h, ":", 2)[0])
+			if strings.EqualFold(name, "user-agent") {
+				return probe.Options{}, fmt.Errorf("conflict: --user-agent and -H \"User-Agent: ...\" cannot both be set")
+			}
+		}
+	}
+	if bearer != "" {
+		for _, h := range headers {
+			name := strings.TrimSpace(strings.SplitN(h, ":", 2)[0])
+			if strings.EqualFold(name, "authorization") {
+				return probe.Options{}, fmt.Errorf("conflict: --bearer and -H \"Authorization: ...\" cannot both be set")
+			}
+		}
+	}
+	if body != "" && jsonBody != "" {
+		return probe.Options{}, fmt.Errorf("conflict: --data and --json cannot both be set")
+	}
+	if maxRedirects < 2 || maxRedirects > 10 {
+		return probe.Options{}, fmt.Errorf("max-redirects must be between 2 and 10 (got %d)", maxRedirects)
+	}
+	effectiveMethod := method
+	if effectiveMethod == "" && (body != "" || jsonBody != "") {
+		effectiveMethod = "POST"
+	}
+	return probe.Options{
+		UseHTTP1:    http1,
+		UseHTTP11:   http11,
+		NoKeepAlive: noKeepAlive,
+		Timeout:     time.Duration(timeout) * time.Second,
+		MaxRedirects: maxRedirects,
+		DNSServers:  dnsServers,
+		PreferIPv6:  useIPv6,
+		UserAgent:   userAgent,
+		Method:      effectiveMethod,
+		Headers:     headers,
+		BearerToken: bearer,
+		Body:        body,
+		JSONBody:    jsonBody,
+	}, nil
+}
+
 func main() {
 	fs := flag.NewFlagSet("httpstat", flag.ContinueOnError)
 	showVersion := fs.Bool("version", false, "Print version and exit")
@@ -70,11 +127,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *maxRedirects < 2 || *maxRedirects > 10 {
-		fmt.Fprintf(os.Stderr, "Error: max-redirects must be between 2 and 10\n")
-		os.Exit(1)
-	}
-
 	var servers []string
 	if *dnsServers != "" {
 		for _, s := range strings.Split(*dnsServers, ",") {
@@ -82,49 +134,26 @@ func main() {
 		}
 	}
 
-	userAgentExplicit := false
+	var userAgentExplicit bool
 	fs.Visit(func(f *flag.Flag) {
 		if f.Name == "user-agent" {
 			userAgentExplicit = true
 		}
 	})
-	for _, h := range headers {
-		key := strings.TrimSpace(strings.SplitN(h, ":", 2)[0])
-		if userAgentExplicit && strings.EqualFold(key, "user-agent") {
-			fmt.Fprintf(os.Stderr, "Error: cannot use both --user-agent and -H \"User-Agent: ...\"\n")
-			os.Exit(1)
-		}
-		if *bearer != "" && strings.EqualFold(key, "authorization") {
-			fmt.Fprintf(os.Stderr, "Error: cannot use both --bearer and -H \"Authorization: ...\"\n")
-			os.Exit(1)
-		}
-	}
 
-	if body != "" && *jsonBody != "" {
-		fmt.Fprintf(os.Stderr, "Error: cannot use both --data and --json\n")
+	opts, err := validateAndBuildOptions(
+		*userAgent, userAgentExplicit,
+		*http1, *http11, *noKeepAlive,
+		*timeout, *maxRedirects,
+		servers, *useIPv6,
+		method, []string(headers), *bearer, body, *jsonBody,
+	)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	effectiveMethod := method
-	if effectiveMethod == "" && (body != "" || *jsonBody != "") {
-		effectiveMethod = "POST"
-	}
-
-	result, err := probe.Run(context.Background(), url, probe.Options{
-		UseHTTP1:     *http1,
-		UseHTTP11:    *http11,
-		NoKeepAlive:  *noKeepAlive,
-		Timeout:      time.Duration(*timeout) * time.Second,
-		MaxRedirects: *maxRedirects,
-		DNSServers:   servers,
-		PreferIPv6:   *useIPv6,
-		UserAgent:    *userAgent,
-		Method:       effectiveMethod,
-		Headers:      []string(headers),
-		BearerToken:  *bearer,
-		Body:         body,
-		JSONBody:     *jsonBody,
-	})
+	result, err := probe.Run(context.Background(), url, opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
