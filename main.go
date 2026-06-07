@@ -24,7 +24,7 @@ func main() {
 	maxRedirects := fs.Int("max-redirects", 5, "Maximum number of redirects allowed (default: 5, range: 2-10)")
 	dnsServers := fs.String("dns-servers", "", "Comma-separated list of DNS server IP addresses (e.g., 8.8.8.8,8.8.4.4)")
 	useIPv6 := fs.Bool("ipv6", false, "Prefer IPv6 connections over IPv4")
-	asJSON := fs.Bool("json", false, "Output results as JSON")
+	asJSON := fs.Bool("output-json", false, "Output results as JSON")
 	showTrace := fs.Bool("trace", false, "Show trace messages in output")
 
 	url, err := parseCommandLine(fs)
