@@ -9,7 +9,28 @@ import (
 	"time"
 )
 
-
+// buildHeaders assembles request headers from opts.
+// Precedence (lowest to highest): JSON auto-headers → user-agent → bearer → -H overrides.
+func buildHeaders(opts Options) http.Header {
+	h := make(http.Header)
+	if opts.JSONBody != "" {
+		h.Set("Content-Type", "application/json")
+		h.Set("Accept", "application/json")
+	}
+	if opts.UserAgent != "" {
+		h.Set("User-Agent", opts.UserAgent)
+	}
+	if opts.BearerToken != "" {
+		h.Set("Authorization", "Bearer "+opts.BearerToken)
+	}
+	for _, entry := range opts.Headers {
+		parts := strings.SplitN(entry, ":", 2)
+		if len(parts) == 2 {
+			h.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+	return h
+}
 
 type RedirectHandler struct {
 	log          *TraceLog
@@ -59,20 +80,10 @@ func createRequest(ctx context.Context, url string, m *Measurement, opts Options
 	if err != nil {
 		return nil, err
 	}
-
-	if opts.JSONBody != "" {
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json")
-	}
-	if opts.UserAgent != "" {
-		req.Header.Set("User-Agent", opts.UserAgent)
-	}
-	if opts.BearerToken != "" {
-		req.Header.Set("Authorization", "Bearer "+opts.BearerToken)
-	}
-	for _, h := range opts.Headers {
-		parts := strings.SplitN(h, ":", 2)
-		req.Header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+	for key, vals := range buildHeaders(opts) {
+		for _, v := range vals {
+			req.Header.Set(key, v)
+		}
 	}
 	return req.WithContext(m.Instrument(req.Context())), nil
 }
