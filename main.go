@@ -11,7 +11,7 @@ import (
 	probe "github.com/vandancd/httpstat/pkg/probe"
 )
 
-const version = "1.1"
+const version = "1.2.0"
 
 type headerFlags []string
 
