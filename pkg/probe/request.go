@@ -5,8 +5,40 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
+
+// buildHeaders assembles request headers from opts.
+// Precedence (lowest to highest): JSON auto-headers → user-agent → bearer → -H overrides.
+func buildHeaders(opts Options) http.Header {
+	h := make(http.Header)
+	if opts.JSONBody != "" {
+		h.Set("Content-Type", "application/json")
+		h.Set("Accept", "application/json")
+	}
+	if opts.UserAgent != "" {
+		h.Set("User-Agent", opts.UserAgent)
+	}
+	if opts.BearerToken != "" {
+		h.Set("Authorization", "Bearer "+opts.BearerToken)
+	}
+	seen := make(map[string]bool)
+	for _, entry := range opts.Headers {
+		parts := strings.SplitN(entry, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		if !seen[strings.ToLower(key)] {
+			h.Del(key) // first explicit occurrence replaces any auto-set value
+			seen[strings.ToLower(key)] = true
+		}
+		h.Add(key, val)
+	}
+	return h
+}
 
 type RedirectHandler struct {
 	log          *TraceLog
@@ -39,14 +71,24 @@ func (h *RedirectHandler) Handle(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
-func createRequest(ctx context.Context, url string, m *Measurement, userAgent string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+func createRequest(ctx context.Context, url string, m *Measurement, opts Options) (*http.Request, error) {
+	method := opts.Method
+	if method == "" {
+		method = "GET"
+	}
+
+	var body io.Reader
+	if opts.JSONBody != "" {
+		body = strings.NewReader(opts.JSONBody)
+	} else if opts.Body != "" {
+		body = strings.NewReader(opts.Body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
-	if userAgent != "" {
-		req.Header.Set("User-Agent", userAgent)
-	}
+	req.Header = buildHeaders(opts)
 	return req.WithContext(m.Instrument(req.Context())), nil
 }
 

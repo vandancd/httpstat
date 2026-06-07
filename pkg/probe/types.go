@@ -1,6 +1,11 @@
 package probe
 
-import "time"
+import (
+	"context"
+	"net"
+	"net/http"
+	"time"
+)
 
 type Timing struct {
 	DNSLookup        time.Duration
@@ -43,4 +48,13 @@ type Options struct {
 	DNSServers   []string
 	PreferIPv6   bool
 	UserAgent    string
+	Method       string
+	Headers      []string
+	BearerToken  string
+	Body         string
+	JSONBody     string
+	// Optional seams for testing. When nil/zero, Run builds defaults from the
+	// other fields. When provided, Run uses them directly.
+	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	Transport   http.RoundTripper
 }

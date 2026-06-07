@@ -80,7 +80,7 @@ The waterfall answers "where did time go overall." The trace answers "what exact
 - No wall-clock timestamps, absolute timestamps are useless for debugging. What matters is relative time.
 
 ## Other Capabilities
-  - `--json` flag outputs all timing and trace data as structured JSON, suitable for piping into jq or logging systems
+  - `--output-json` flag outputs all timing and trace data as structured JSON, suitable for piping into jq or logging systems
   - `--dns-servers` lets you override DNS resolution to test split-horizon DNS, compare CDN PoPs, or diagnose DNS propagation
   - `--http1 / --http1.1` force protocol version (useful for comparing HTTP/1.x vs HTTP/2 performance)
   - `--ipv6` prefers IPv6 routing
