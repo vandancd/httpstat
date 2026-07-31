@@ -36,6 +36,9 @@ CONTEXT.md
 docs/
 .claude/
 
+# gh-pages worktree
+site/
+
 # macOS
 .DS_Store
 .AppleDouble
