@@ -1,11 +1,418 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>httpstat</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stop guessing where your HTTP request went — see it</title>
+  <link rel="icon" type="image/svg+xml" href="img/httpstat_icon_1024.svg">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #0f1117;
+      color: #c9d1d9;
+      line-height: 1.75;
+      padding: 3rem 1.5rem 6rem;
+    }
+
+    article {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 3rem;
+      border-bottom: 1px solid #21262d;
+      padding-bottom: 2rem;
+    }
+
+    .label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #58a6ff;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: clamp(1.75rem, 4vw, 2.4rem);
+      font-weight: 700;
+      color: #e6edf3;
+      line-height: 1.25;
+      margin-bottom: 1rem;
+    }
+
+    .byline {
+      font-size: 0.875rem;
+      color: #8b949e;
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #e6edf3;
+      margin: 2.5rem 0 0.75rem;
+    }
+
+    p {
+      margin-bottom: 1.25rem;
+      color: #c9d1d9;
+    }
+
+    p:last-child { margin-bottom: 0; }
+
+    strong { color: #e6edf3; font-weight: 600; }
+
+    em { color: #c9d1d9; font-style: italic; }
+
+    /* Inline code */
+    code {
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+      font-size: 0.85em;
+      background: #161b22;
+      color: #79c0ff;
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      border: 1px solid #21262d;
+    }
+
+    /* Block code */
+    pre {
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      margin: 1.5rem 0 1.75rem;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.65;
+    }
+
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: inherit;
+      color: inherit;
+    }
+
+    /* Terminal color classes */
+    .cyan   { color: #39c5cf; }
+    .yellow { color: #e3b341; }
+    .green  { color: #56d364; }
+    .red    { color: #f85149; }
+    .blue   { color: #58a6ff; }
+    .dim    { color: #8b949e; }
+    .bold   { color: #e6edf3; font-weight: 600; }
+    .hop-arrow  { color: #d2a8ff; font-weight: 600; }
+    .hop-final  { color: #58a6ff; font-weight: 600; }
+
+    /* "Why design matters" callout box */
+    .callout {
+      background: #161b22;
+      border-left: 3px solid #58a6ff;
+      border-radius: 0 8px 8px 0;
+      padding: 1.25rem 1.5rem;
+      margin: 1.75rem 0;
+    }
+
+    .callout p { margin-bottom: 0.75rem; }
+    .callout p:last-child { margin-bottom: 0; }
+
+    /* When to reach for it — grid */
+    .use-cases {
+      display: grid;
+      gap: 0.75rem;
+      margin: 1.25rem 0 1.75rem;
+    }
+
+    .use-case {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 0.9rem 1.1rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+
+    .use-case-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+      margin-top: 0.1em;
+    }
+
+    .use-case-text {
+      font-size: 0.9rem;
+      color: #c9d1d9;
+    }
+
+    .use-case-text strong { color: #e6edf3; }
+
+    /* Flags table */
+    .flags {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0 1.75rem;
+      font-size: 0.875rem;
+    }
+
+    .flags th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      background: #161b22;
+      color: #8b949e;
+      font-weight: 600;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .flags td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid #21262d;
+      vertical-align: top;
+    }
+
+    .flags tr:last-child td { border-bottom: none; }
+
+    .flags td:first-child code {
+      color: #79c0ff;
+      white-space: nowrap;
+    }
+
+    .flags td:last-child { color: #c9d1d9; }
+
+    hr {
+      border: none;
+      border-top: 1px solid #21262d;
+      margin: 2.5rem 0;
+    }
+
+    footer {
+      margin-top: 3.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #21262d;
+      font-size: 0.875rem;
+      color: #8b949e;
+    }
+  </style>
 </head>
 <body>
-<h1>httpstat</h1>
-<p>Site coming soon.</p>
+<article>
+
+  <header>
+    <div class="label">Engineering · HTTP Debugging</div>
+    <h1>Why httpstat makes HTTP Debugging useful</h1>
+    <div class="byline">A deep dive into <code>httpstat</code>, the terminal waterfall chart your debugging workflow is missing</div>
+  </header>
+
+<div class="callout">
+<h3>Homebrew (macOS / Linux)</h3>
+<code>brew install vandancd/tap/httpstat</code>
+
+<h3>From source</h3>
+<code>go install github.com/vandancd/httpstat@latest</code>
+</div>
+<hr>
+
+  <p>You're debugging a slow API endpoint. You run <code>curl -v</code>. You get 200 lines of protocol noise, a handful of timestamps, and no clear picture of where the 800ms went. Was it DNS? TLS? The server taking forever to respond? You manually diff timestamps and try to reconstruct the sequence.</p>
+
+  <p>There's a better way.</p>
+
+  <p><code>httpstat</code> is a Go CLI that wraps an HTTP probe and renders the results as a waterfall bar chart in your terminal. No browser required. No log scraping. One command, one picture.</p>
+
+  <hr>
+
+  <h2>The problem with how we debug HTTP today</h2>
+
+  <p>Most engineers reach for two tools when debugging HTTP performance: <code>curl -v</code> and browser DevTools. Both have serious blind spots.</p>
+
+  <p><code>curl -v</code> dumps raw protocol events with wall-clock timestamps you have to diff by hand. There's no visual sense of proportion. A 2ms DNS lookup and a 600ms TTFB look equally unimportant as lines of text. The signal is buried in noise.</p>
+
+  <p>Browser DevTools is excellent, but it requires a browser. That rules it out entirely for CI pipelines, staging servers, scripted diagnostics, or anything you're SSH'd into. And when you need to compare performance across environments like production vs. staging, CDN PoP A vs. PoP B; opening DevTools on each is slow and inconsistent.</p>
+
+  <p>Neither tool handles redirect chains well. You get timing for hop #1 or hop #2, never both scaled together so you can see which hop introduced the latency.</p>
+
+  <p>The mental model engineers actually need is: <em>"How much of the total round-trip was DNS? Was TCP? Was the server? And where in the redirect chain did things go wrong?"</em></p>
+
+  <p><code>httpstat</code> is built around that mental model.</p>
+
+  <h2>The waterfall output</h2>
+
+  <p>Run <code>httpstat http://vandan.co</code> and you get this:</p>
+
+<pre><code><span class="hop-arrow">→</span>  <span class="bold">http://vandan.co</span>  <span class="dim">301 Moved Permanently  HTTP/1.1  new connection</span>
+
+   <span class="cyan">DNS Lookup    </span>  <span class="cyan">████</span><span class="dim">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>   <span class="bold">7.31ms</span>
+   <span class="cyan">TCP Connection</span>  <span class="cyan">███</span><span class="dim">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>  <span class="bold">18.43ms</span>
+   <span class="yellow">TLS Handshake </span>  <span class="yellow">████████</span><span class="dim">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>  <span class="bold">28.96ms</span>
+   <span class="green">TTFB          </span>  <span class="green">███</span><span class="dim">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>  <span class="bold">26.74ms</span>
+
+<span class="hop-final">●</span>  <span class="bold">https://www.vandan.co</span>  <span class="dim">200 OK  HTTP/2.0  new connection</span>
+
+   <span class="cyan">DNS Lookup    </span>  <span class="cyan">██</span><span class="dim">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>   <span class="bold">2.11ms</span>
+   <span class="cyan">TCP Connection</span>  <span class="cyan">██</span><span class="dim">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>  <span class="bold">14.27ms</span>
+   <span class="yellow">TLS Handshake </span>  <span class="yellow">████████████</span><span class="dim">░░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>  <span class="bold">49.84ms</span>
+   <span class="red">TTFB          </span>  <span class="red">██████████████████████████████</span><span class="dim">░░░░░░░░░░</span> <span class="bold">574.21ms</span>
+   <span class="blue">TTLB          </span>  <span class="blue">████</span><span class="dim">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>  <span class="bold">78.56ms</span>
+
+   <span class="dim">Total         </span>  <span class="dim">████████████████████████████████████████</span> <span class="bold">716.00ms</span></code></pre>
+
+  <p>A few things to notice immediately, before even reading the numbers:</p>
+
+  <p><strong>The bars are scaled to the grand total</strong>. Every bar is proportional to the sum of all time across all hops. That TLS bar in hop #1 and the TTFB bar in hop #2 are drawn on the same scale. You can glance at the chart and know at a moment's notice that the server response time on the final hop is dominating everything else. That's the insight, not the 574ms number, but the visual weight of that bar relative to everything else.</p>
+
+  <p><strong>Color carries meaning.</strong> DNS and TCP are cyan, pure network cost. TLS is yellow, crypto overhead. TTFB changes color based on severity: green below 200ms, yellow below 500ms, red at 500ms and above. TTLB is blue. The color palette turns the waterfall into a triage tool: scan for red, investigate yellow.</p>
+
+  <p><strong><code>→</code> marks redirects, <code>●</code> marks the final response.</strong> This notation is borrowed from network topology — <code>→</code> is a transit hop, <code>●</code> is a terminal node. At a glance you know you're looking at a redirect chain and which entry is the final destination.</p>
+
+  <p><strong>TTLB only appears on the final hop.</strong> Redirects don't return response bodies, so rendering a Time-to-Last-Byte for them would be meaningless. The tool makes the right decision for you.</p>
+
+  <p><strong>Connection reuse is explicit.</strong> When a connection is reused, the output says so and hides the DNS/TCP/TLS rows — those phases simply didn't happen. This is easy to overlook in raw timing data, but <code>httpstat</code> makes it structurally obvious: a reused connection has fewer rows, not zeroed-out rows.</p>
+
+  <p>This last point matters more than it sounds. If you're looking at benchmark data and wondering why two similar requests have wildly different TLS times, connection reuse is often the answer. <code>httpstat</code> makes that visible without you having to go looking.</p>
+
+  <h2>The trace output: <code>--trace</code></h2>
+
+  <p>The waterfall answers <em>"where did time go overall."</em> The trace answers <em>"what exactly happened, in what order, and how long between events?"</em></p>
+
+<pre><code><span class="dim">Trace</span>
+
+<span class="hop-arrow">→</span>  <span class="bold">http://vandan.co</span>  <span class="dim">301 Moved Permanently</span>
+
+      <span class="dim">+0ms</span>   <span class="dim">[+0ms]</span>    Getting connection for vandan.co:443
+      <span class="cyan">+1ms</span>   <span class="cyan">[+1ms]</span>    <span class="cyan">DNS lookup starting for vandan.co</span>
+      <span class="cyan">+8ms</span>   <span class="cyan">[+7ms]</span>    <span class="cyan">Connection attempt to 151.101.194.187:443</span>
+     <span class="yellow">+26ms</span>  <span class="yellow">[+18ms]</span>   <span class="yellow">TLS handshake starting</span>
+     <span class="yellow">+55ms</span>  <span class="yellow">[+29ms]</span>   <span class="yellow">TLS handshake completed</span>
+     <span class="green">+81ms</span>  <span class="green">[+26ms]</span>   <span class="green">First response byte received (TTFB)</span>
+
+<span class="hop-final">●</span>  <span class="bold">https://www.vandan.co</span>  <span class="dim">200 OK</span>
+
+     <span class="dim">+82ms</span>   <span class="dim">[+1ms]</span>    Getting connection for www.vandan.co:443
+     <span class="cyan">+82ms</span>   <span class="cyan">[+0ms]</span>    <span class="cyan">DNS lookup starting for www.vandan.co</span>
+     <span class="cyan">+84ms</span>   <span class="cyan">[+2ms]</span>    <span class="cyan">Connection attempt to 146.75.38.187:443</span>
+     <span class="yellow">+98ms</span>  <span class="yellow">[+14ms]</span>   <span class="yellow">TLS handshake starting</span>
+    <span class="yellow">+148ms</span>  <span class="yellow">[+50ms]</span>   <span class="yellow">TLS handshake completed</span>
+    <span class="red">+658ms</span> <span class="red">[+510ms]</span>  <span class="red">First response byte received (TTFB)</span>
+    <span class="blue">+737ms</span>  <span class="blue">[+79ms]</span>   <span class="blue">Response body fully read (TTLB)</span></code></pre>
+
+  <p>There are two timestamp columns and both are pulling their weight.</p>
+
+  <p>The left column (<code>+elapsed</code>) is time since the probe started. It tells you <em>when</em> in the overall picture an event occurred. The right column (<code>[+delta]</code>) is time since the previous event. It tells you <em>how long that specific step took</em>.</p>
+
+  <p>These serve different debugging needs. If you're trying to understand why a request took 737ms, you scan the delta column for the large number; there it is, <code>[+510ms]</code> on the TTFB event at the final hop. That's your culprit. If you're trying to understand whether the redirect itself added latency (did following the 301 eat time before the second DNS lookup started?), you look at the elapsed column: <code>+81ms</code> to complete hop #1, <code>+82ms</code> to start hop #2. The redirect handoff cost 1ms; negligible.</p>
+
+  <p>The trace events use the same color coding as the waterfall bars. DNS events are cyan, TLS events are yellow, TTFB events are severity-colored. In a long trace this matters: you can visually cluster events by phase without parsing the text of each line.</p>
+
+  <p>One deliberate omission: there are no wall-clock timestamps. Absolute timestamps are nearly useless for performance debugging; what matters is the relative sequence and the time between steps. <code>httpstat</code> optimizes for that and only that.</p>
+
+  <p>The waterfall and trace are designed to be read together. The waterfall gives you the summary; the trace, grouped under the same <code>→</code>/<code>●</code> headers, gives you the drill-down for the same hops. Scan the waterfall, identify the slow phase, flip to the trace for that hop, find the exact event.</p>
+
+  <hr>
+
+  <h2>Why the output design matters as much as the data</h2>
+
+  <div class="callout">
+    <p><code>httpstat</code> isn't the only tool that collects HTTP timing data. <code>curl</code> exposes <code>--write-out</code> with timing variables. Many APMs and tracing tools capture similar phase breakdowns. What makes <code>httpstat</code> useful in practice isn't the data, it's the rendering.</p>
+    <p>The waterfall's proportional bars create a preattentive signal. Before you consciously read any number, your visual system has already identified the longest bar and therefore the dominant cost. This is not a small thing when you're debugging under pressure. The difference between "scan a list of numbers to find the largest" and "look at a bar chart and immediately see the longest bar" is the difference between seconds and milliseconds of comprehension.</p>
+    <p>The trace's delta column has the same property. You don't have to subtract timestamps; the subtraction is already done, right-aligned in a fixed-width column so large numbers pop.</p>
+    <p>Neither of these would matter much for a one-off debug session. But for an engineer running dozens of probes across environments, comparing performance before and after a config change, triaging a CDN issue at 2am; the rendering <em>is</em> the feature.</p>
+  </div>
+
+  <hr>
+
+  <h2>Other flags worth knowing</h2>
+
+  <table class="flags">
+    <thead>
+      <tr>
+        <th>Flag</th>
+        <th>What it does</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>--json</code></td>
+        <td>Emits all timing and trace data as structured JSON. Pipe into <code>jq</code>, log to a metrics system, or diff across runs.</td>
+      </tr>
+      <tr>
+        <td><code>--dns-servers</code></td>
+        <td>Overrides DNS resolution. Useful for testing split-horizon DNS, comparing CDN PoPs directly, or diagnosing DNS propagation after a record change.</td>
+      </tr>
+      <tr>
+        <td><code>--http1</code> / <code>--http1.1</code></td>
+        <td>Forces protocol version. Run the same endpoint over HTTP/1.x then HTTP/2 and compare the waterfalls to quantify whether an upgrade is actually helping.</td>
+      </tr>
+      <tr>
+        <td><code>--no-keepalive</code></td>
+        <td>Disables connection reuse. Always shows the full cold-start cost — fresh DNS, TCP handshake, full TLS negotiation.</td>
+      </tr>
+      <tr>
+        <td><code>--timeout</code></td>
+        <td>Sets a probe-level deadline in seconds. Pair with <code>--json</code> for scripted diagnostics that need a hard upper bound.</td>
+      </tr>
+      <tr>
+        <td><code>--ipv6</code></td>
+        <td>Prefers IPv6 routing for the probe.</td>
+      </tr>
+      <tr>
+        <td><code>--max-redirects</code></td>
+        <td>Controls redirect depth. Default 5, range 2–10.</td>
+      </tr>
+      <tr>
+        <td><code>--user-agent string</code></td>
+        <td>The default User-Agent is now the Chrome browser string, so sites with bot protection work out of the box. To probe with raw UA for comparison: --user-agent "", or to spoof a different client: --user-agent "MyMonitor/1.0".</td> 
+      </tr>
+    </tbody>
+  </table>
+  <hr>
+
+<h2>Installation</h2>
+<div class="callout">
+<h3>Homebrew (macOS / Linux)</h3>
+<code>brew install vandancd/tap/httpstat</code>
+
+<h3>From source</h3>
+<code>go install github.com/vandancd/httpstat@latest</code>
+</div>
+<hr>
+  <h2>When to reach for it</h2>
+
+  <div class="use-cases">
+    <div class="use-case">
+      <div class="use-case-icon">🔀</div>
+      <div class="use-case-text"><strong>Is our redirect chain adding meaningful latency?</strong> Run it against your root domain and read the hop-by-hop waterfall.</div>
+    </div>
+    <div class="use-case">
+      <div class="use-case-icon">🔐</div>
+      <div class="use-case-text"><strong>Is TLS overhead the bottleneck?</strong> If the TLS bar is wider than TTFB, you have a crypto cost problem, not a server problem.</div>
+    </div>
+    <div class="use-case">
+      <div class="use-case-icon">🌐</div>
+      <div class="use-case-text"><strong>Did adding a CDN help?</strong> Run it before and after, compare DNS and TCP phases; CDNs should push both down by getting the server closer to the client.</div>
+    </div>
+    <div class="use-case">
+      <div class="use-case-icon">🔍</div>
+      <div class="use-case-text"><strong>Why does this endpoint feel slow in staging but fast in production?</strong> Use <code>--dns-servers</code> to probe both environments' DNS, then compare waterfalls.</div>
+    </div>
+    <div class="use-case">
+      <div class="use-case-icon">♻️</div>
+      <div class="use-case-text"><strong>Is connection reuse happening when I expect it to?</strong> The "reused connection" annotation and hidden DNS/TCP/TLS rows make this immediately visible.</div>
+    </div>
+  </div>
+
+  <p>The tool installs as a single binary. No configuration, no agent, no dashboard. For ad-hoc HTTP performance debugging, that's exactly what you want.</p>
+
+  <footer>
+    <code>curl -v</code> will always be there for raw protocol inspection. But when the question is <em>"where did my time go,"</em> reach for something that answers it visually. <code>httpstat</code> is a small tool with a tight scope and it does that one thing well.
+  </footer>
+
+</article>
 </body>
 </html>
